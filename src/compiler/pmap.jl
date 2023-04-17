@@ -113,17 +113,14 @@ function commonInnerCompile(runtime_fn, B, orig, gutils, tape, mode)
     mod = LLVM.parent(LLVM.parent(LLVM.parent(orig)))
     ctx = LLVM.context(orig)
 
+    mi, job = enzyme_custom_extract_mi(orig)
+    
     llvmfn = LLVM.called_value(orig)
-    mi = nothing
     adjointnm = nothing
     augfwdnm = nothing
     TapeType = nothing
     for fattr in collect(function_attributes(llvmfn))
         if isa(fattr, LLVM.StringAttribute)
-            if kind(fattr) == "enzymejl_mi"
-                ptr = reinterpret(Ptr{Cvoid}, parse(Int, LLVM.value(fattr)))
-                mi = Base.unsafe_pointer_to_objref(ptr)
-            end
             if kind(fattr) == "enzymejl_tapetype"
                 ptr = reinterpret(Ptr{Cvoid}, parse(Int, LLVM.value(fattr)))
                 TapeType = Base.unsafe_pointer_to_objref(ptr)
@@ -159,11 +156,11 @@ function commonInnerCompile(runtime_fn, B, orig, gutils, tape, mode)
         
     if augfwdnm === nothing
         # TODO: Clean this up and add to `nested_codegen!` asa feature
-        etarget = Compiler.EnzymeTarget()
+        etarget = Compiler.EnzymeTarget(job.config.target.parent_target)
         funcOverwritten = true
         indexOverwritten = false
         eparams = Compiler.EnzymeCompilerParams(Tuple{Const{funcT}, dup...}, API.DEM_ReverseModePrimal, width, Const{RT}, true,
-                                                #=abiwrap=#true, #=modifiedBetween=#(funcOverwritten, indexOverwritten, overwritten...,), #=returnPrimal=#false, #=shadowprimalInit=#false, Compiler.UnknownTapeType)
+                                                #=abiwrap=#true, #=modifiedBetween=#(funcOverwritten, indexOverwritten, overwritten...,), #=returnPrimal=#false, #=shadowprimalInit=#false, Compiler.UnknownTapeType, GPUCompiler.method_table(job))
         ejob    = Compiler.CompilerJob(eprimal, CompilerConfig(etarget, eparams; kernel=false), world)
             
         jctx = ctx
